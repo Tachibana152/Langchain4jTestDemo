@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LangChain4j AI 助手</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23ff4d88'/%3E%3Ctext x='50' y='70' font-size='52' text-anchor='middle' fill='white' font-family='Arial, sans-serif' font-weight='bold'%3EAI%3C/text%3E%3C/svg%3E"
+    />
     <style>
       * {
         margin: 0;
@@ -12,16 +17,16 @@
       }
 
       :root {
-        --bg: #0f1117;
-        --panel: #171a23;
-        --border: #262b3a;
-        --text: #e6e8ef;
-        --text-dim: #8b90a0;
-        --accent: #4f7cff;
-        --accent-hover: #3a66e8;
-        --user-bubble: #2b3a5e;
-        --ai-bubble: #1e2230;
-        --danger: #ff5c5c;
+        --bg: #fff5f8;
+        --panel: #ffeef3;
+        --border: #f3d3de;
+        --text: #4a2b38;
+        --text-dim: #a37085;
+        --accent: #ff4d88;
+        --accent-hover: #e63d78;
+        --user-bubble: #ffd9e5;
+        --ai-bubble: #ffffff;
+        --danger: #e5484d;
         --radius: 12px;
       }
 
@@ -58,7 +63,7 @@
         width: 34px;
         height: 34px;
         border-radius: 9px;
-        background: linear-gradient(135deg, #4f7cff, #8b5cf6);
+        background: linear-gradient(135deg, #ff5c8a, #ff9ecb);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -146,7 +151,7 @@
       }
 
       .message.ai .avatar {
-        background: linear-gradient(135deg, #4f7cff, #8b5cf6);
+        background: linear-gradient(135deg, #ff5c8a, #ff9ecb);
         color: #fff;
       }
 
@@ -171,7 +176,7 @@
       }
 
       .bubble pre {
-        background: #0d0f16;
+        background: #fdf1f6;
         border: 1px solid var(--border);
         border-radius: 8px;
         padding: 12px;
@@ -183,7 +188,7 @@
       }
 
       .bubble code {
-        background: #0d0f16;
+        background: #fdf1f6;
         border: 1px solid var(--border);
         border-radius: 4px;
         padding: 1px 5px;
@@ -320,6 +325,32 @@
       #chatMessages::-webkit-scrollbar-track {
         background: transparent;
       }
+
+      .header-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn-secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        padding: 7px 14px;
+        font-size: 13px;
+        border-radius: 8px;
+        transition:
+          color 0.2s,
+          border-color 0.2s,
+          background 0.2s;
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        color: var(--text);
+        border-color: var(--accent);
+        background: rgba(255, 77, 136, 0.08);
+      }
     </style>
   </head>
   <body>
@@ -328,6 +359,15 @@
       <div>
         <h1>LangChain4j 智能助手</h1>
         <div class="subtitle">基于 DeepSeek · 由 Spring Boot 提供接口</div>
+      </div>
+      <div class="header-right">
+        <button
+          id="newChatBtn"
+          class="btn-secondary"
+          title="清空当前会话记忆，开始新对话"
+        >
+          ✨ 新会话
+        </button>
       </div>
     </header>
 
@@ -355,8 +395,30 @@
       const input = document.getElementById("input");
       const sendBtn = document.getElementById("sendBtn");
       const welcome = document.getElementById("welcome");
+      const newChatBtn = document.getElementById("newChatBtn");
 
       let sending = false;
+
+      // ---------- 会话管理 ----------
+      // 会话 ID 持久化到 localStorage，刷新页面后上下文记忆不丢失
+      const SESSION_KEY = "langchain4j_session_id";
+      let sessionId = localStorage.getItem(SESSION_KEY) || generateSessionId();
+
+      function generateSessionId() {
+        const id =
+          (crypto.randomUUID && crypto.randomUUID()) ||
+          "s-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(SESSION_KEY, id);
+        return id;
+      }
+
+      // 新建会话：更换 sessionId，后端将为新会话创建独立的空白记忆
+      newChatBtn.addEventListener("click", () => {
+        sessionId = generateSessionId();
+        chatMessages.querySelectorAll(".message").forEach((m) => m.remove());
+        welcome.style.display = "";
+        input.focus();
+      });
 
       // 自动调整输入框高度
       input.addEventListener("input", () => {
@@ -374,7 +436,7 @@
 
       sendBtn.addEventListener("click", send);
 
-      async function send() {
+      function send() {
         const message = input.value.trim();
         if (!message || sending) return;
 
@@ -387,32 +449,74 @@
         sendBtn.disabled = true;
         const typing = addTyping();
 
-        try {
-          const resp = await fetch("/chat/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message }),
-          });
-          const result = await resp.json();
+        // 用 SSE 流式接收 AI 回复，实现打字机效果
+        const es = new EventSource(
+          `/chat/stream?message=${encodeURIComponent(message)}&sessionId=${encodeURIComponent(sessionId)}`,
+        );
 
+        let fullText = "";
+        let done = false;
+
+        const finish = () => {
+          if (done) return;
+          done = true;
           typing.remove();
-          if (result.code === 200) {
-            addMessage("ai", result.data);
-          } else {
-            addMessage("ai", `❌ ${result.message || "请求失败"}`, true);
-          }
-        } catch (err) {
-          typing.remove();
-          addMessage(
-            "ai",
-            "❌ 网络异常，无法连接服务器，请确认后端服务已启动。",
-            true,
-          );
-        } finally {
+          // 完成后渲染一次完整 Markdown，让代码块等格式正确显示
+          addMessage("ai", fullText);
           sending = false;
           sendBtn.disabled = false;
           input.focus();
-        }
+        };
+
+        es.onmessage = (e) => {
+          const data = e.data;
+
+          if (data === "[DONE]") {
+            es.close();
+            finish();
+            return;
+          }
+
+          // 后端错误：JSON {"error":"..."}
+          if (data.startsWith("{")) {
+            es.close();
+            typing.remove();
+            try {
+              const obj = JSON.parse(data);
+              addMessage("ai", `❌ ${obj.error || "请求失败"}`, true);
+            } catch {
+              addMessage("ai", `❌ ${data}`, true);
+            }
+            sending = false;
+            sendBtn.disabled = false;
+            input.focus();
+            return;
+          }
+
+          // 正常 token：先以纯文本增量显示（性能好），结束后统一渲染 Markdown
+          fullText += data;
+          const bubble = typing.querySelector(".bubble");
+          bubble.textContent = fullText;
+          scrollToBottom();
+        };
+
+        es.onerror = () => {
+          es.close();
+          if (!done && fullText) {
+            // 收到过内容但连接中断，尝试保留已生成部分
+            finish();
+          } else if (!done) {
+            typing.remove();
+            addMessage(
+              "ai",
+              "❌ 网络异常，无法连接服务器，请确认后端服务已启动。",
+              true,
+            );
+            sending = false;
+            sendBtn.disabled = false;
+            input.focus();
+          }
+        };
       }
 
       function addMessage(role, text, isError = false) {

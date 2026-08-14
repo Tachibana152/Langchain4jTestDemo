@@ -4,3 +4,12 @@ langchain4j:
       base-url: https://api.deepseek.com
       api-key: ${deepseek-key-copilot}
       model-name: deepseek-v4-pro
+      # 模型温度：越高回答越有创造性，越低越严谨
+      temperature: 0.7
+      # 单次回复最大 token 数
+      max-tokens: 2048
+      # 请求超时时间（秒）
+      timeout: 60s
+      # 打印请求/响应日志，方便调试（生产环境建议关闭）
+      log-requests: true
+      log-responses: true
