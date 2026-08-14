@@ -1,0 +1,6 @@
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com
+      api-key: ${deepseek-key-copilot}
+      model-name: deepseek-v4-pro
