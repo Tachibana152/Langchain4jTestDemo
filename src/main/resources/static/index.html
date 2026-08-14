@@ -16,7 +16,8 @@
         box-sizing: border-box;
       }
 
-      :root {
+      :root,
+      [data-theme="pink"] {
         --bg: #fff5f8;
         --panel: #ffeef3;
         --border: #f3d3de;
@@ -28,6 +29,43 @@
         --ai-bubble: #ffffff;
         --danger: #e5484d;
         --radius: 12px;
+        --logo-grad: linear-gradient(135deg, #ff5c8a, #ff9ecb);
+        --code-bg: #fdf1f6;
+        --accent-soft: rgba(255, 77, 136, 0.08);
+      }
+
+      /* 灰色调 */
+      [data-theme="gray"] {
+        --bg: #f3f3f5;
+        --panel: #eaeaf0;
+        --border: #d5d5de;
+        --text: #2f2f36;
+        --text-dim: #7d7d87;
+        --accent: #6b7280;
+        --accent-hover: #565d69;
+        --user-bubble: #dcdce4;
+        --ai-bubble: #ffffff;
+        --danger: #d0453e;
+        --logo-grad: linear-gradient(135deg, #6b7280, #9ca3af);
+        --code-bg: #efeff3;
+        --accent-soft: rgba(107, 114, 128, 0.12);
+      }
+
+      /* 白色调 */
+      [data-theme="white"] {
+        --bg: #ffffff;
+        --panel: #f8f8fa;
+        --border: #e6e6ea;
+        --text: #1b1b1f;
+        --text-dim: #8a8a93;
+        --accent: #212125;
+        --accent-hover: #3d3d44;
+        --user-bubble: #ececf1;
+        --ai-bubble: #ffffff;
+        --danger: #d0453e;
+        --logo-grad: linear-gradient(135deg, #212125, #5c5c66);
+        --code-bg: #f4f4f6;
+        --accent-soft: rgba(33, 33, 37, 0.06);
       }
 
       html,
@@ -63,7 +101,7 @@
         width: 34px;
         height: 34px;
         border-radius: 9px;
-        background: linear-gradient(135deg, #ff5c8a, #ff9ecb);
+        background: var(--logo-grad);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -151,7 +189,7 @@
       }
 
       .message.ai .avatar {
-        background: linear-gradient(135deg, #ff5c8a, #ff9ecb);
+        background: var(--logo-grad);
         color: #fff;
       }
 
@@ -176,7 +214,7 @@
       }
 
       .bubble pre {
-        background: #fdf1f6;
+        background: var(--code-bg);
         border: 1px solid var(--border);
         border-radius: 8px;
         padding: 12px;
@@ -188,7 +226,7 @@
       }
 
       .bubble code {
-        background: #fdf1f6;
+        background: var(--code-bg);
         border: 1px solid var(--border);
         border-radius: 4px;
         padding: 1px 5px;
@@ -349,7 +387,49 @@
       .btn-secondary:hover:not(:disabled) {
         color: var(--text);
         border-color: var(--accent);
-        background: rgba(255, 77, 136, 0.08);
+        background: var(--accent-soft);
+      }
+
+      /* ---------- 主题切换器 ---------- */
+      .theme-switcher {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--bg);
+      }
+
+      .theme-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+      }
+
+      .theme-dot:hover {
+        transform: scale(1.15);
+      }
+
+      .theme-dot.active {
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+
+      .theme-dot[data-theme="pink"] {
+        background: #ff5c8a;
+      }
+      .theme-dot[data-theme="gray"] {
+        background: #9ca3af;
+      }
+      .theme-dot[data-theme="white"] {
+        background: #ffffff;
+        border-color: #d5d5de;
       }
     </style>
   </head>
@@ -361,6 +441,30 @@
         <div class="subtitle">基于 DeepSeek · 由 Spring Boot 提供接口</div>
       </div>
       <div class="header-right">
+        <!-- 主题切换：粉色 / 灰色 / 白色 -->
+        <div class="theme-switcher" title="切换页面配色">
+          <button
+            class="theme-dot"
+            data-theme="pink"
+            data-theme-name="粉色"
+            title="粉色"
+            aria-label="粉色主题"
+          ></button>
+          <button
+            class="theme-dot"
+            data-theme="gray"
+            data-theme-name="灰色"
+            title="灰色"
+            aria-label="灰色主题"
+          ></button>
+          <button
+            class="theme-dot"
+            data-theme="white"
+            data-theme-name="白色"
+            title="白色"
+            aria-label="白色主题"
+          ></button>
+        </div>
         <button
           id="newChatBtn"
           class="btn-secondary"
@@ -398,6 +502,27 @@
       const newChatBtn = document.getElementById("newChatBtn");
 
       let sending = false;
+
+      // ---------- 主题切换 ----------
+      const THEME_KEY = "langchain4j_theme";
+      const THEMES = ["pink", "gray", "white"];
+      const themeDots = Array.from(document.querySelectorAll(".theme-dot"));
+
+      function applyTheme(theme) {
+        if (!THEMES.includes(theme)) theme = "pink";
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem(THEME_KEY, theme);
+        themeDots.forEach((dot) =>
+          dot.classList.toggle("active", dot.dataset.theme === theme),
+        );
+      }
+
+      // 初始化：优先用 localStorage 记住的主题
+      applyTheme(localStorage.getItem(THEME_KEY) || "pink");
+
+      themeDots.forEach((dot) => {
+        dot.addEventListener("click", () => applyTheme(dot.dataset.theme));
+      });
 
       // ---------- 会话管理 ----------
       // 会话 ID 持久化到 localStorage，刷新页面后上下文记忆不丢失
