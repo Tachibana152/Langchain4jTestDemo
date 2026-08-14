@@ -13,3 +13,13 @@ langchain4j:
       # 打印请求/响应日志，方便调试（生产环境建议关闭）
       log-requests: true
       log-responses: true
+    # 流式对话模型（SSE 打字机效果），参数与 chat-model 保持一致
+    streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: ${deepseek-key-copilot}
+      model-name: deepseek-v4-pro
+      temperature: 0.7
+      max-tokens: 2048
+      timeout: 60s
+      log-requests: false
+      log-responses: false
